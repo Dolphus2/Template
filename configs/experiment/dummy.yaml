@@ -3,7 +3,7 @@
 defaults:
   - override /trainer: cpu
   - override /data: dummy_data
-  - override /callbacks: dummy_callbacks
+  - override /callbacks: standard
   - override /model: dummy_model
   - override /logger: default
 
