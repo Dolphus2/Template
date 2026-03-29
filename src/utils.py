@@ -3,7 +3,6 @@ import hydra
 from omegaconf import DictConfig
 from datetime import datetime
 import wandb
-import contextlib
 import random
 import numpy as np
 import torch
@@ -16,11 +15,12 @@ import logging
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, Dataset
 from src import Batch
+from contextlib import contextmanager, nullcontext, AbstractContextManager
 
 logger = logging.getLogger(__name__)
 
 
-@contextlib.contextmanager
+@contextmanager
 def temporary_seed(seed: int):
     """
     Context manager for setting a temporary random seed. Sets `random`, `numpy`, `torch` and `torch.cuda` (if available) seeds.
@@ -37,14 +37,18 @@ def temporary_seed(seed: int):
     random_state = random.getstate()
     numpy_state = np.random.get_state()
     torch_state = torch.random.get_rng_state()
-    cuda_state = torch.cuda.get_rng_state() if torch.cuda.is_available() else None
+
+    # CUDA RNG state is unsafe to access from forked DataLoader workers.
+    in_worker = torch.utils.data.get_worker_info() is not None
+    use_cuda_state = torch.cuda.is_available() and torch.cuda.is_initialized() and not in_worker
+    cuda_state = torch.cuda.get_rng_state() if use_cuda_state else None
 
     try:
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
-        if cuda_state is not None:
-            torch.cuda.set_rng_state(cuda_state)
+        if use_cuda_state:
+            torch.cuda.manual_seed_all(seed)
         yield
 
     finally:
@@ -53,6 +57,20 @@ def temporary_seed(seed: int):
         torch.random.set_rng_state(torch_state)
         if cuda_state is not None:
             torch.cuda.set_rng_state(cuda_state)
+
+
+def get_context(seed: int, deterministic: bool) -> AbstractContextManager:
+    """
+    Returns a context manager for setting a temporary random seed if `deterministic` is `True`, otherwise returns a null context manager.
+
+    Args:
+        seed (int): The temporary random seed to set if `deterministic` is `True`.
+        deterministic (bool): Whether to set the temporary random seed.
+
+    Returns:
+        contextlib.AbstractContextManager: A context manager for setting a temporary random seed if `deterministic` is `True`, otherwise a null context manager.
+    """
+    return temporary_seed(seed) if deterministic else nullcontext()
 
 
 def get_current_time() -> str:
@@ -105,7 +123,7 @@ def project_from_id(id: str) -> str:
         run_ids = [run.id for run in runs]
         if id in run_ids:
             return project_name
-    
+
     raise ValueError(f"Could not find project for experiment id '{id}'.")
 
 
@@ -159,7 +177,7 @@ def get_ckpt_path(
     Returns:
         str: Path to the checkpoint file.
     """
-    
+
     project = project_from_id(id)
     ckpt_path = f"logs/{project}/{id}/checkpoints/{filename}.ckpt"
 
@@ -229,10 +247,7 @@ def config_from_id(id: str) -> dict:
     raise ValueError(f"Could not find experiment {id} on WandB.")
 
 
-def model_config_from_id(
-    id: str, 
-    model_keyword: str
-    ) -> dict:
+def model_config_from_id(id: str, model_keyword: str) -> dict:
     """
     Returns the model config for a specific run.
 
@@ -346,23 +361,29 @@ def download_checkpoint(
     root = get_root()
     project = project_from_id(id)
     savedir = f"{root}/logs/{project}/{id}/checkpoints"
-    # the path where we will store the checkpoint
-    final_path = f"{savedir}/{filename}.ckpt"
-
     os.makedirs(savedir, exist_ok=True)
+
+    # Define the final destination file path
+    final_path = os.path.join(savedir, f"{filename}.ckpt")
 
     # Use a temporary directory to download first
     # to not overwrite existing files, since it will download as 'model.ckpt' as default (wandb logic)
     with tempfile.TemporaryDirectory() as temp_dir:
         # download the artifact to a temporary directory
         artifact = get_artifact(id, filename)
-        temp_file = artifact.download(root=temp_dir)
+        artifact.download(root=temp_dir)
+
+        # The file inside the artifact is named 'model.ckpt' (see modelcheckpoint.py)
+        source_path = os.path.join(temp_dir, "model.ckpt")
+
         assert not os.path.exists(final_path), f"Checkpoint already exists at {final_path}."
-        # if the model checkpoint does not already exist, move it to the final path
-        shutil.move(temp_file, final_path)
+
+        # Move and rename to the final destination
+        shutil.move(source_path, final_path)
         logger.info(f"Downloaded checkpoint to {final_path}.")
 
     return final_path
+
 
 def get_batch_from_dataset(dataset: Dataset, batch_size: int, shuffle: bool = False) -> Batch:
     """

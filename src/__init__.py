@@ -12,24 +12,48 @@ OptimizerType = Optional[partial[Optimizer]]
 LRSchedulerType = Optional[dict[str, partial[LRScheduler] | str]]
 ImageType = list[Tensor | Figure | np.ndarray]
 
-
 class Sample(TypedDict):
+    """
+    A classic regression/classification sample with an input and a target.
+    """
+
     input: Tensor
     target: Tensor
 
 
-class Batch(Sample): ...
+class Batch(Sample):
+    """
+    Same as sample but contains a batch of samples.
+    """
+
+    ...
 
 
 class ModelOutput(TypedDict):
+    """
+    A classic output type for a model with a single output tensor.
+    """
+
     output: Tensor
 
 
 class LossOutput(TypedDict):
+    """
+    A classic output type for a loss function with a single loss tensor.
+    """
+
     loss: Tensor
 
 
 class StepOutput(TypedDict):
+    """
+    A classic output type for a training/validation/test step in PyTorch Lightning.
+    * The model will take a gradient step based on `loss`,
+    * The model will log the values in `loss_output` (which can contain multiple values,
+    e.g. a VAE loss might contain a reconstruction loss and a KL divergence loss) if and only
+    if you are using the `LogLossCallback`. See the `LogLossCallback` for more details.
+    """
+
     loss: Tensor
     model_output: Optional[ModelOutput] = None
     loss_output: Optional[LossOutput] = None

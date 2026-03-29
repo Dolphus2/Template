@@ -1,3 +1,4 @@
+import torch
 from torch.utils.data import Dataset
 import hashlib
 from src import Sample
@@ -14,7 +15,7 @@ class BaseDataset(Dataset):
     @property
     def unique_identifier(self):
         """
-        A unique identifier of this class. 
+        A unique identifier of this class.
         This is based on the unique properties of the class, i.e. the attributes defined in __init__.
 
         Returns:
@@ -34,6 +35,17 @@ class BaseDataset(Dataset):
             str: The data path.
         """
         return os.getenv("DATA_PATH")
+
+    def sample(self):
+        """
+        Returns a random sample from the dataset.
+        This is useful for testing and debugging.
+
+        Returns:
+            Sample: A random sample from the dataset.
+        """
+        rand_idx = torch.randint(0, len(self), (1,)).item()
+        return self.__getitem__(rand_idx)
 
     def __len__(self) -> int:
         raise NotImplementedError("Length method not implemented")

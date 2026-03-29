@@ -1,6 +1,6 @@
 from main import my_app
 from hydra import compose, initialize
-from omegaconf import OmegaConf
+
 
 def test_my_app():
     """
@@ -22,11 +22,12 @@ def test_my_app():
     with initialize(version_base=None, config_path="../../configs", job_name="config"):
         # check if the main training loop is working with a dummy config
         cfg = compose(config_name="config", overrides=["experiment=dummy"])
-        cfg['logger']['offline'] = True
-        cfg['logger']['log_model'] = False
-        cfg['callbacks'] = None
-        cfg['trainer']['fast_dev_run'] = True  # run a single batch for testing
+        cfg["logger"]["offline"] = True
+        cfg["logger"]["log_model"] = False
+        cfg["callbacks"] = None
+        cfg["trainer"]["fast_dev_run"] = True  # run a single batch for testing
         my_app(cfg)
-        
+
+
 if __name__ == "__main__":
     test_my_app()
