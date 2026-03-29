@@ -88,7 +88,7 @@ def build(c: Context):
     """Build (sync) the environment from pyproject.toml."""
     c.run("echo Syncing the environment...")
     c.run("uv sync")
-    
+
     items = {
         "DATA_PATH": "...",
         "WANDB_ENTITY": "...",
@@ -96,23 +96,26 @@ def build(c: Context):
         "ZOTERO_API_KEY": "...",
         "ZOTERO_USER_ID": "...",
         "PAPER_PATH": "...",
+        "HF_TOKEN": "...",
     }
-    
+
     # create .env if it doesn't exist
     if not os.path.exists(".env"):
-        with open(".env", "w") as f: ...
-    
+        with open(".env", "w") as f:
+            ...
+
     # read current variables
     curr_vars = {}
     for line in open(".env"):
         key, _, value = line.partition("=")
         curr_vars[key] = value.strip()
-    
+
     # insert missing variables as placeholders
     with open(".env", "a") as f:
         for key, placeholder in items.items():
             if key not in curr_vars:
                 f.write(f"{key}={placeholder}\n")
+
 
 @task
 def update(c: Context):
@@ -299,5 +302,5 @@ def logs(c: Context, jobid=None, tail=50):
 @task
 def coverage(c: Context):
     """Generate code coverage report."""
-    c.run("coverage run -m pytest")
+    c.run("coverage run --source=src -m pytest")
     c.run("coverage report -m")

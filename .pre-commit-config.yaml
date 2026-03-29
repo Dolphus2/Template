@@ -20,3 +20,15 @@ repos:
     - id: ruff-format
     # validate if all is fine with preview mode
     - id: ruff
+
+# run pytest before commit
+- repo: local
+  hooks:
+    - id: pytest
+      name: pytest
+      entry: .venv/bin/pytest
+      language: system
+      types: [python]
+      stages: [pre-commit]
+      pass_filenames: false
+      always_run: true

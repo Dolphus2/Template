@@ -16,6 +16,9 @@ from pytorch_lightning import LightningDataModule, LightningModule, Callback
 import wandb
 import yaml
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 os.environ["HYDRA_FULL_ERROR"] = "1"
 
@@ -54,21 +57,23 @@ def my_app(cfg: DictConfig) -> None:
     if cfg.continue_from_id:
         # if 'continue_from_id' is set, we continue from the given id
         # this requires 'ckpt_filename' to be set as well
-        id = cfg.continue_from_id
+        id = str(cfg.continue_from_id)
         assert cfg.ckpt_filename is not None, "'ckpt_filename' must be provided when continue_from_id is set."
         ckpt_path = get_ckpt_path(id, cfg.ckpt_filename)
         logger.info(f"Continuing from id: {id}.\n Using checkpoint path: {ckpt_path}")
-        
+
     elif cfg.ckpt_filename is not None:
         # if 'ckpt_filename' is set, we continue from the given checkpoint
         # in this case, the ckpt_filename should also contain the id where the checkpoint is located
         id = get_current_time()
         ckpt_path = cfg.ckpt_filename
-        assert "/" in cfg.ckpt_filename, "'ckpt_filename' must be in the format '<id>/<filename>' when continuing from a specific checkpoint."
+        assert (
+            "/" in cfg.ckpt_filename
+        ), "'ckpt_filename' must be in the format '<id>/<filename>' when continuing from a specific checkpoint."
         ckpt_id, filename = cfg.ckpt_filename.split("/")
         ckpt_path = get_ckpt_path(ckpt_id, filename)
         logger.info(f"Starting a new run with id: {id}.\n Using checkpoint path: {ckpt_path}")
-        
+
     else:
         # if neither 'continue_from_id' nor 'ckpt_filename' is set, we start a new experiment
         id, ckpt_path = get_current_time(), None
