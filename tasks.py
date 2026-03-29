@@ -88,6 +88,7 @@ def build(c: Context):
     """Build (sync) the environment from pyproject.toml."""
     c.run("echo Syncing the environment...")
     c.run("uv sync")
+    c.run("pre-commit install")
 
     items = {
         "DATA_PATH": "...",
